@@ -17,28 +17,59 @@ class PasswordViewModel(private val repository: PasswordRepository) : ViewModel(
     private val _uiState = MutableStateFlow(PasswordUiState())
     val uiState: StateFlow<PasswordUiState> = _uiState.asStateFlow()
 
-    init { observe() }
+    init {
+        observe()
+    }
 
     private fun observe() {
         repository.getAllPasswords()
             .onStart { _uiState.update { it.copy(isLoading = true) } }
             .catch { e -> _uiState.update { it.copy(isLoading = false, error = e.message) } }
-            .onEach { list -> _uiState.update { it.copy(passwords = list, isLoading = false, error = null) } }
+            .onEach { list ->
+                _uiState.update {
+                    it.copy(
+                        passwords = list,
+                        isLoading = false,
+                        error = null
+                    )
+                }
+            }
             .launchIn(viewModelScope)
     }
 
     fun savePassword(item: PasswordItem, onDone: () -> Unit = {}) {
         viewModelScope.launch {
-            repository.upsertPassword(item)
-            onDone()
+            val result = repository.upsertPassword(item)
+
+            result.onSuccess {
+                onDone()
+            }
+
+            result.onFailure { e ->
+                _uiState.update {
+                    it.copy(error = e.message ?: "Something went wrong")
+                }
+            }
         }
     }
 
     fun deletePassword(item: PasswordItem) {
         viewModelScope.launch {
-            repository.deletePassword(item)
+            val result = repository.deletePassword(item)
+
+            result.onFailure { e ->
+                _uiState.update {
+                    it.copy(error = e.message ?: "Failed to delete password")
+                }
+            }
         }
     }
 
-    suspend fun getPasswordById(id: Int): PasswordItem? = repository.getPasswordById(id)
+    suspend fun getPasswordById(id: Int): PasswordItem? {
+        val result = repository.getPasswordById(id)
+        result.onFailure { e ->
+            _uiState.update { it.copy(error = e.message ?: "Unable to load details") }
+        }
+        return result.getOrNull()
+    }
 }

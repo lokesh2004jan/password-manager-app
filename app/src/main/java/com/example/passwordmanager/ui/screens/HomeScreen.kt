@@ -10,13 +10,10 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.example.passwordmanager.ui.components.PasswordCard
 import com.example.passwordmanager.ui.theme.Blue500
-import com.example.passwordmanager.ui.theme.HeaderGradientStart
-import com.example.passwordmanager.ui.theme.HeaderGradientEnd
 import com.example.passwordmanager.ui.viewmodel.PasswordViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -27,6 +24,14 @@ fun HomeScreen(
     onOpenDetails: (Int) -> Unit
 ) {
     val state by viewModel.uiState.collectAsState()
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    // Show errors with Snackbar
+    LaunchedEffect(state.error) {
+        state.error?.let {
+            snackbarHostState.showSnackbar(it)
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -34,7 +39,7 @@ fun HomeScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(88.dp)
-                    .background(Color(0xFFF6F8FE))
+                    .background(Color(0xFFF6F8FE))   // light blue header
             ) {
                 Text(
                     "Password Manager",
@@ -45,25 +50,52 @@ fun HomeScreen(
         },
 
         floatingActionButton = {
-            FloatingActionButton(onClick = { onOpenAdd() }, containerColor = Blue500) {
-                Icon(Icons.Default.Add, contentDescription = null, tint = Color.White)
+            FloatingActionButton(
+                onClick = { onOpenAdd() },
+                containerColor = Blue500
+            ) {
+                Icon(Icons.Default.Add, contentDescription = "Add New", tint = Color.White)
             }
         },
 
-        containerColor = Color(0xFFF3F5FA)
+        snackbarHost = { SnackbarHost(snackbarHostState) },
+
+        containerColor = Color(0xFFF6F8FE) // FULL SCREEN background
     ) { padding ->
-        Column(Modifier.padding(padding)) {
+
+        Column(
+            Modifier
+                .fillMaxSize()
+                .padding(padding)
+        ) {
 
             Divider(color = Color(0xFFE8E8E8))
 
             Spacer(Modifier.height(12.dp))
 
-            LazyColumn(
-                contentPadding = PaddingValues(horizontal = 20.dp),
-                verticalArrangement = Arrangement.spacedBy(14.dp)
-            ) {
-                items(state.passwords) { item ->
-                    PasswordCard(item, onClick = { onOpenDetails(item.id) })
+            // Show loading
+            if (state.isLoading) {
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator()
+                }
+            }
+
+            // Empty state
+            else if (state.passwords.isEmpty()) {
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Text("No passwords saved yet.\nTap + to add one!", textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                }
+            }
+
+            // Password list
+            else {
+                LazyColumn(
+                    contentPadding = PaddingValues(horizontal = 20.dp),
+                    verticalArrangement = Arrangement.spacedBy(20.dp) // more spacing between cards
+                ) {
+                    items(state.passwords) { item ->
+                        PasswordCard(item, onClick = { onOpenDetails(item.id) })
+                    }
                 }
             }
         }

@@ -12,35 +12,80 @@ data class PasswordItem(
     val username: String,
     val password: String
 )
-
 class PasswordRepository(
     private val dao: PasswordDao,
     private val cryptoManager: CryptoManager
 ) {
+
     fun getAllPasswords(): Flow<List<PasswordItem>> =
         dao.getAllPasswords().map { list ->
             list.map { e ->
-                PasswordItem(
-                    id = e.id,
-                    accountType = e.accountType,
-                    username = e.username,
-                    password = cryptoManager.decrypt(e.encryptedPassword)
-                )
+                try {
+                    PasswordItem(
+                        id = e.id,
+                        accountType = e.accountType,
+                        username = e.username,
+                        password = cryptoManager.decrypt(e.encryptedPassword)
+                    )
+                } catch (ex: Exception) {
+                    PasswordItem(
+                        id = e.id,
+                        accountType = e.accountType,
+                        username = e.username,
+                        password = "ERROR"
+                    )
+                }
             }
         }
 
-    suspend fun upsertPassword(item: PasswordItem) {
-        val encrypted = cryptoManager.encrypt(item.password)
-        dao.upsertPassword(PasswordEntity(item.id, item.accountType, item.username, encrypted))
+    suspend fun upsertPassword(item: PasswordItem): Result<Unit> {
+        return try {
+            val encrypted = cryptoManager.encrypt(item.password)
+            dao.upsertPassword(
+                PasswordEntity(
+                    item.id,
+                    item.accountType,
+                    item.username,
+                    encrypted
+                )
+            )
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
     }
 
-    suspend fun deletePassword(item: PasswordItem) {
-        val encrypted = cryptoManager.encrypt(item.password)
-        dao.deletePassword(PasswordEntity(item.id, item.accountType, item.username, encrypted))
+    suspend fun deletePassword(item: PasswordItem): Result<Unit> {
+        return try {
+            val encrypted = cryptoManager.encrypt(item.password)
+            dao.deletePassword(
+                PasswordEntity(
+                    item.id,
+                    item.accountType,
+                    item.username,
+                    encrypted
+                )
+            )
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
     }
 
-    suspend fun getPasswordById(id: Int): PasswordItem? {
-        val e = dao.getPasswordById(id) ?: return null
-        return PasswordItem(e.id, e.accountType, e.username, cryptoManager.decrypt(e.encryptedPassword))
+    suspend fun getPasswordById(id: Int): Result<PasswordItem> {
+        return try {
+            val e = dao.getPasswordById(id) ?: return Result.failure(Exception("Not found"))
+            val decrypted = cryptoManager.decrypt(e.encryptedPassword)
+            Result.success(
+                PasswordItem(
+                    e.id,
+                    e.accountType,
+                    e.username,
+                    decrypted
+                )
+            )
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
     }
 }
