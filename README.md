@@ -43,9 +43,4 @@ No plain-text passwords are ever stored in the database.
 - **IV-based cryptography**
 - **Base64 secured storage**
 
----
 
-## 📸 Screenshots  
-> Add screenshots here (optional but highly recommended)
-
-Example:
